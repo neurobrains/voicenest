@@ -71,15 +71,30 @@ export async function startSession({ endpoint, apiKey, transport }) {
 /**
  * Stop Pipecat Cloud session via REST DELETE
  * @see https://docs.pipecat.ai/deployment/pipecat-cloud/rest-reference/endpoint/stop
+ * Production-grade: retry on failure, verify response
  */
-export async function stopSession({ stopUrl, apiKey }) {
-  if (!stopUrl || !apiKey) return;
-  try {
-    await fetch(stopUrl, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-  } catch (e) {
-    console.warn("VoiceNest: stopSession failed", e);
+export async function stopSession({ stopUrl, apiKey }, opts = {}) {
+  if (!stopUrl || !apiKey) return false;
+  const maxRetries = opts.retries ?? 2;
+  const retryDelay = opts.retryDelay ?? 500;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 10000);
+      const res = await fetch(stopUrl, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      if (res.ok) return true;
+      if (res.status === 404) return true;
+      if (attempt < maxRetries) await new Promise((r) => setTimeout(r, retryDelay));
+    } catch (e) {
+      if (attempt < maxRetries) await new Promise((r) => setTimeout(r, retryDelay));
+      else console.warn("VoiceNest: stopSession failed", e);
+    }
   }
+  return false;
 }

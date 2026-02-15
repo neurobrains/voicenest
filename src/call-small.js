@@ -80,11 +80,21 @@ export async function join({ webrtcUrl, apiKey, iceConfig, onStatus }) {
 
 export async function leave() {
   if (!client) return;
-  try {
-    client.disconnectBot?.();
-  } catch (_) {}
-  await client.disconnect();
+  const c = client;
   client = null;
+  try {
+    if (typeof c.disconnectBot === "function") c.disconnectBot();
+  } catch (_) {}
+  try {
+    await Promise.race([
+      c.disconnect(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("disconnect timeout")), 5000)),
+    ]);
+  } catch (e) {
+    try {
+      await c.disconnect();
+    } catch (_) {}
+  }
   if (audioEl?.parentNode) {
     audioEl.srcObject = null;
     audioEl.parentNode.removeChild(audioEl);

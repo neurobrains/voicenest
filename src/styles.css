@@ -1,6 +1,45 @@
 .voicenest {
   font-family: system-ui, -apple-system, sans-serif;
 }
+.voicenest-theme-dark .voicenest-card {
+  background: #1a1a1e;
+  box-shadow: 0 4px 24px rgba(0,0,0,.25);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.voicenest-theme-dark .voicenest-btn { color: #fff; }
+.voicenest-theme-dark .voicenest-mic { background: rgba(255,255,255,.1); }
+.voicenest-theme-dark .voicenest-mic:hover { background: rgba(255,255,255,.18); }
+.voicenest-theme-dark .voicenest-status { color: rgba(255,255,255,.7); }
+
+.voicenest-theme-white .voicenest-card {
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0,0,0,.12);
+  border: 1px solid rgba(0,0,0,.08);
+}
+.voicenest-theme-white .voicenest-btn { color: #fff; }
+.voicenest-theme-white .voicenest-mic { background: rgba(0,0,0,.08); color: #333; }
+.voicenest-theme-white .voicenest-mic:hover { background: rgba(0,0,0,.14); }
+.voicenest-theme-white .voicenest-status { color: rgba(0,0,0,.6); }
+
+.voicenest-theme-device .voicenest-card {
+  background: #1a1a1e;
+  box-shadow: 0 4px 24px rgba(0,0,0,.25);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.voicenest-theme-device .voicenest-btn { color: #fff; }
+.voicenest-theme-device .voicenest-mic { background: rgba(255,255,255,.1); }
+.voicenest-theme-device .voicenest-mic:hover { background: rgba(255,255,255,.18); }
+.voicenest-theme-device .voicenest-status { color: rgba(255,255,255,.7); }
+@media (prefers-color-scheme: light) {
+  .voicenest-theme-device .voicenest-card {
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0,0,0,.12);
+    border: 1px solid rgba(0,0,0,.08);
+  }
+  .voicenest-theme-device .voicenest-mic { background: rgba(0,0,0,.08); color: #333; }
+  .voicenest-theme-device .voicenest-mic:hover { background: rgba(0,0,0,.14); }
+  .voicenest-theme-device .voicenest-status { color: rgba(0,0,0,.6); }
+}
 .voicenest-btn {
   display: flex;
   align-items: center;
@@ -12,10 +51,15 @@
   border-radius: 12px;
   cursor: pointer;
   color: #fff;
-  transition: transform .15s, opacity .15s;
+  transition: transform .15s, opacity .15s, box-shadow .25s ease;
 }
 .voicenest-btn:hover:not(:disabled) {
   transform: scale(1.05);
+}
+.voicenest-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .voicenest-btn svg {
   width: 22px;
@@ -32,3 +76,86 @@
   color: rgba(255,255,255,.7);
   min-width: 72px;
 }
+
+/* style: card (default) */
+.voicenest-style-card .voicenest-card {
+  padding: 12px 16px;
+  border-radius: 14px;
+}
+.voicenest-style-card .voicenest-btn { border-radius: 12px; }
+.voicenest-style-card .voicenest-status { display: inline; }
+
+/* style: circle-round - circular buttons, no card background */
+.voicenest-style-circle-round .voicenest-card {
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  gap: 12px;
+}
+.voicenest-style-circle-round .voicenest-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+.voicenest-style-circle-round .voicenest-mic {
+  background: rgba(255,255,255,.12) !important;
+  border: none !important;
+  color: #fff;
+}
+.voicenest-style-circle-round .voicenest-mic:hover {
+  background: rgba(255,255,255,.2) !important;
+}
+.voicenest-style-circle-round.voicenest-theme-white .voicenest-mic,
+.voicenest-style-circle-round.voicenest-theme-device .voicenest-mic {
+  background: rgba(0,0,0,.08) !important;
+  color: #333;
+}
+.voicenest-style-circle-round.voicenest-theme-white .voicenest-mic:hover,
+.voicenest-style-circle-round.voicenest-theme-device .voicenest-mic:hover {
+  background: rgba(0,0,0,.14) !important;
+}
+@media (prefers-color-scheme: light) {
+  .voicenest-style-circle-round.voicenest-theme-device .voicenest-mic {
+    background: rgba(0,0,0,.08) !important;
+    color: #333;
+  }
+  .voicenest-style-circle-round.voicenest-theme-device .voicenest-mic:hover {
+    background: rgba(0,0,0,.14) !important;
+  }
+}
+.voicenest-style-circle-round.voicenest-theme-white .voicenest-mic:hover,
+.voicenest-style-circle-round.voicenest-theme-device .voicenest-mic:hover {
+  background: rgba(0,0,0,.14) !important;
+}
+@media (prefers-color-scheme: light) {
+  .voicenest-style-circle-round.voicenest-theme-device .voicenest-mic:hover {
+    background: rgba(0,0,0,.14) !important;
+  }
+}
+.voicenest-style-circle-round .voicenest-status { display: none; }
+
+/* style: minimal - no card background, just buttons */
+.voicenest-style-minimal .voicenest-card {
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  gap: 10px;
+}
+.voicenest-style-minimal .voicenest-mic {
+  background: rgba(128,128,128,.25) !important;
+}
+.voicenest-style-minimal .voicenest-mic:hover {
+  background: rgba(128,128,128,.35) !important;
+}
+.voicenest-style-minimal.voicenest-theme-white .voicenest-mic,
+.voicenest-style-minimal.voicenest-theme-device .voicenest-mic { background: rgba(0,0,0,.12) !important; }
+.voicenest-style-minimal.voicenest-theme-white .voicenest-mic:hover,
+.voicenest-style-minimal.voicenest-theme-device .voicenest-mic:hover { background: rgba(0,0,0,.18) !important; }
+@media (prefers-color-scheme: light) {
+  .voicenest-style-minimal.voicenest-theme-device .voicenest-mic { background: rgba(0,0,0,.12) !important; }
+  .voicenest-style-minimal.voicenest-theme-device .voicenest-mic:hover { background: rgba(0,0,0,.18) !important; }
+}
+.voicenest-style-minimal .voicenest-btn { border-radius: 12px; }
+.voicenest-style-minimal .voicenest-status { display: none; }

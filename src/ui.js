@@ -17,6 +17,10 @@ export function render(config, { onStart, onStop, onToggleMic }) {
   const pos = config.position || "bottom-right";
   const offset = config.offset || { x: 20, y: 20 };
   const c = (v) => (typeof offset === "number" ? offset : offset[v] ?? 20);
+  const theme = config.theme || "dark";
+  const style = config.style || "card";
+  root.classList.add("voicenest-theme-" + theme);
+  root.classList.add("voicenest-style-" + style);
 
   root.innerHTML = `
     <div class="voicenest-card" style="
@@ -25,10 +29,7 @@ export function render(config, { onStart, onStop, onToggleMic }) {
       z-index:2147483647;
       display:flex;align-items:center;gap:10px;
       padding:12px 16px;
-      background:#1a1a1e;
       border-radius:14px;
-      box-shadow:0 4px 24px rgba(0,0,0,.25);
-      border:1px solid rgba(255,255,255,.06);
     ">
       <button class="voicenest-btn voicenest-call" aria-label="Call">${PHONE}</button>
       <button class="voicenest-btn voicenest-mic" aria-label="Mute" style="display:none">${MIC}</button>
@@ -44,28 +45,80 @@ export function render(config, { onStart, onStop, onToggleMic }) {
   const color = config.color || "#2563eb";
   callBtn.style.background = color;
 
+  const hexToRgba = (hex, a) => {
+    if (!hex || typeof hex !== "string") return `rgba(37,99,235,${a})`;
+    let m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    if (m) return `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${a})`;
+    m = hex.match(/^#?([a-f\d])([a-f\d])([a-f\d])$/i);
+    if (m) return `rgba(${parseInt(m[1]+m[1],16)},${parseInt(m[2]+m[2],16)},${parseInt(m[3]+m[3],16)},${a})`;
+    return `rgba(37,99,235,${a})`;
+  };
+
+  const getGlowAlpha = () => {
+    const v = config.glowIntensity ?? 45;
+    return Math.min(1, Math.max(0, typeof v === "number" ? (v > 1 ? v / 100 : v) : 0.45));
+  };
+
+  const applyShadow = () => {
+    const s = config.shadow;
+    if (s === false || s === "none" || s === "false") card.style.setProperty("box-shadow", "none", "important");
+    else if (typeof s === "string" && s) card.style.setProperty("box-shadow", s, "important");
+    else card.style.removeProperty("box-shadow");
+  };
+  const applyGlow = (btnColor) => {
+    const g = config.glow;
+    const alpha = getGlowAlpha();
+    const blur = Math.max(0, config.glowBlur ?? 28);
+    const spread = Math.max(0, config.glowSpread ?? 8);
+    if (g === false || g === "none") callBtn.style.boxShadow = "";
+    else if (typeof g === "string") callBtn.style.boxShadow = `0 0 ${blur}px ${spread}px ${hexToRgba(g, alpha)}`;
+    else if (g === true) callBtn.style.boxShadow = `0 0 ${blur}px ${spread}px ${hexToRgba(btnColor, alpha)}`;
+    else callBtn.style.boxShadow = "";
+  };
+
+  applyShadow();
+  if (config.glow) applyGlow(color);
+
+  const revertUi = () => {
+    active = false;
+    muted = false;
+    micBtn.style.display = "none";
+    micBtn.style.removeProperty("background");
+    micBtn.style.removeProperty("color");
+    callBtn.innerHTML = PHONE;
+    callBtn.style.background = color;
+    if (config.glow) applyGlow(color);
+    status.textContent = "idle";
+  };
+
+  let endCallInProgress = false;
   callBtn.onclick = async () => {
     if (active) {
-      await onStop?.();
-      active = false;
-      muted = false;
-      micBtn.style.display = "none";
-      callBtn.innerHTML = PHONE;
-      callBtn.style.background = color;
-      status.textContent = "idle";
+      if (endCallInProgress) return;
+      endCallInProgress = true;
+      callBtn.disabled = true;
+      try {
+        await onStop?.();
+      } finally {
+        endCallInProgress = false;
+        callBtn.disabled = false;
+        revertUi();
+      }
     } else {
       callBtn.innerHTML = PHONE_OFF;
       callBtn.style.background = "#dc2626";
+      if (config.glow) applyGlow("#dc2626");
       active = true;
       micBtn.style.display = "flex";
       micBtn.innerHTML = muted ? MIC_OFF : MIC;
+      if (style === "circle-round" || style === "minimal") {
+        micBtn.style.setProperty("background", color, "important");
+        micBtn.style.setProperty("color", "#fff", "important");
+      }
       try {
         await onStart?.();
       } catch (e) {
-        active = false;
-        micBtn.style.display = "none";
-        callBtn.innerHTML = PHONE;
-        callBtn.style.background = color;
+        revertUi();
         status.textContent = "error";
         status.title = e?.message || "Error";
       }
@@ -75,6 +128,10 @@ export function render(config, { onStart, onStop, onToggleMic }) {
   micBtn.onclick = async () => {
     muted = !muted;
     micBtn.innerHTML = muted ? MIC_OFF : MIC;
+    if (style === "circle-round" || style === "minimal") {
+      micBtn.style.setProperty("background", color, "important");
+      micBtn.style.setProperty("color", "#fff", "important");
+    }
     await onToggleMic?.(!muted);
   };
 
@@ -84,14 +141,9 @@ export function render(config, { onStart, onStop, onToggleMic }) {
     setStatus: (text) => {
       status.textContent = text;
       if (text === "connected") onToggleMic?.(!muted);
+      if (text === "idle") revertUi();
     },
     setError: (msg) => { status.textContent = "error"; status.title = msg || ""; },
-    revert: () => {
-      active = false;
-      micBtn.style.display = "none";
-      callBtn.innerHTML = PHONE;
-      callBtn.style.background = color;
-      status.textContent = "idle";
-    },
+    revert: revertUi,
   };
 }

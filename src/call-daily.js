@@ -29,9 +29,21 @@ export async function join({ url, token, onStatus }) {
 
 export async function leave() {
   if (!call) return;
-  await call.leave();
-  call.destroy();
+  const c = call;
   call = null;
+  try {
+    await Promise.race([
+      c.leave(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("leave timeout")), 5000)),
+    ]);
+  } catch (e) {
+    try {
+      await c.leave();
+    } catch (_) {}
+  }
+  try {
+    c.destroy();
+  } catch (_) {}
 }
 
 export function setMic(enabled) {

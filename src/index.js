@@ -12,6 +12,7 @@ let config = null;
 let ui = null;
 let activeTransport = null;
 let activeSession = null; // { stopUrl } for Pipecat Cloud
+let isStopping = false;
 
 async function start() {
   if (!config) throw new Error("Call VoiceNest.init() first");
@@ -21,6 +22,9 @@ async function start() {
   const onStatus = (s) => {
     ui?.setStatus(s);
     config?.onStatusChange?.(s);
+    if (s === "idle" && (activeTransport || activeSession) && !isStopping) {
+      stop();
+    }
   };
 
   try {
@@ -73,21 +77,29 @@ async function start() {
 }
 
 async function stop() {
-  if (activeTransport === "small") {
-    await callSmall.leave();
-  } else {
-    await callDaily.leave();
-  }
-  // Stop Pipecat Cloud session (requires privateApiKey - public key returns 401)
-  const stopKey = config?.privateApiKey;
-  if (activeSession?.stopUrl && stopKey) {
-    await stopSession({ stopUrl: activeSession.stopUrl, apiKey: stopKey });
-  } else if (activeSession?.stopUrl && config?.apiKey && !config?.privateApiKey) {
-    console.warn("VoiceNest: Stop requires privateApiKey. Session may remain active.");
-  }
+  if (isStopping) return;
+  isStopping = true;
+  const transport = activeTransport;
+  const session = activeSession;
   activeTransport = null;
   activeSession = null;
-  ui?.setStatus("idle");
+
+  try {
+    const stopKey = config?.privateApiKey;
+    if (session?.stopUrl && stopKey) {
+      await stopSession({ stopUrl: session.stopUrl, apiKey: stopKey });
+    } else if (session?.stopUrl && config?.apiKey && !config?.privateApiKey) {
+      console.warn("VoiceNest: Stop requires privateApiKey. Session may remain active.");
+    }
+    if (transport === "small") {
+      await callSmall.leave();
+    } else if (transport === "daily") {
+      await callDaily.leave();
+    }
+  } finally {
+    isStopping = false;
+    ui?.setStatus("idle");
+  }
 }
 
 function setMic(enabled) {
@@ -118,6 +130,13 @@ function init(opts = {}) {
     position: opts.position || "bottom-right",
     offset: opts.offset || { x: 20, y: 20 },
     color: opts.color || "#2563eb",
+    theme: opts.theme || "dark",
+    style: opts.style || "card",
+    shadow: opts.shadow,
+    glow: opts.glow,
+    glowIntensity: opts.glowIntensity ?? 45,
+    glowSpread: opts.glowSpread ?? 8,
+    glowBlur: opts.glowBlur ?? 28,
     onStatusChange: opts.onStatusChange || null,
     onError: opts.onError || null,
   };
