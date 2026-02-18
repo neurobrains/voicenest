@@ -125,14 +125,21 @@ export function render(config, { onStart, onStop, onToggleMic }) {
     }
   };
 
+  let micToggleInProgress = false;
   micBtn.onclick = async () => {
+    if (micToggleInProgress) return;
+    micToggleInProgress = true;
     muted = !muted;
     micBtn.innerHTML = muted ? MIC_OFF : MIC;
     if (style === "circle-round" || style === "minimal") {
       micBtn.style.setProperty("background", color, "important");
       micBtn.style.setProperty("color", "#fff", "important");
     }
-    await onToggleMic?.(!muted);
+    try {
+      await onToggleMic?.(!muted);
+    } finally {
+      setTimeout(() => { micToggleInProgress = false; }, 150);
+    }
   };
 
   document.body.appendChild(root);

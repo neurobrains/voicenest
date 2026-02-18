@@ -3,16 +3,45 @@
  * Supports Daily and SmallWebRTC transports
  */
 import "./styles.css";
+import { installGetUserMediaPatch } from "./audio-constraints";
+
+// Patch MUST run before any transport/userMedia; SmallWebRTC is timing-sensitive
+installGetUserMediaPatch();
+
 import { render } from "./ui";
 import * as callDaily from "./call-daily";
 import * as callSmall from "./call-small";
 import { startSession, stopSession } from "./session";
+import { requestMicPermission } from "./audio-constraints";
 
 let config = null;
 let ui = null;
 let activeTransport = null;
 let activeSession = null; // { stopUrl } for Pipecat Cloud
 let isStopping = false;
+
+function normalizeError(err) {
+  const msg = err?.message || String(err || "");
+  if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+    return "Connection failed. Check network or try HTTPS.";
+  }
+  if (msg.includes("CORS") || msg.includes("Access-Control")) {
+    return "Connection blocked. Use HTTPS or localhost.";
+  }
+  if (msg.includes("Permission") || msg.includes("denied") || msg.includes("NotAllowed")) {
+    return "Microphone access denied. Allow mic in browser settings.";
+  }
+  if (msg.includes("NotFound") || msg.includes("not found")) {
+    return "Microphone not found.";
+  }
+  if (msg.includes("NotSupported") || msg.includes("secure")) {
+    return "Microphone requires HTTPS or localhost.";
+  }
+  if (msg.includes("504") || msg.includes("Gateway Timeout")) {
+    return "Server timeout. Try again shortly.";
+  }
+  return msg || "Connection failed. Try again.";
+}
 
 async function start() {
   if (!config) throw new Error("Call VoiceNest.init() first");
@@ -27,11 +56,20 @@ async function start() {
     }
   };
 
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    const msg = "Microphone requires HTTPS or localhost.";
+    onStatus("error");
+    ui?.setError(msg);
+    ui?.revert?.();
+    config?.onError?.(new Error(msg));
+    return;
+  }
+
   try {
+    onStatus("connecting");
     let session = { transport: config.transport };
 
     if (config.startEndpoint) {
-      onStatus("connecting");
       session = await startSession({
         endpoint: config.startEndpoint,
         apiKey: config.apiKey,
@@ -48,8 +86,22 @@ async function start() {
     }
 
     const transport = session.transport || "daily";
-
     activeSession = session.stopUrl ? { stopUrl: session.stopUrl } : null;
+
+    // Skip permission warmup for SmallWebRTC — it can break sender attachment
+    if (transport !== "small-webrtc") {
+      try {
+        await requestMicPermission();
+      } catch (permErr) {
+        const msg = normalizeError(permErr);
+        console.error("VoiceNest:", permErr);
+        onStatus("error");
+        ui?.setError(msg);
+        ui?.revert?.();
+        config?.onError?.(new Error(msg));
+        return;
+      }
+    }
 
     if (transport === "small-webrtc") {
       activeTransport = "small";
@@ -68,11 +120,12 @@ async function start() {
       });
     }
   } catch (err) {
+    const msg = normalizeError(err);
     console.error("VoiceNest:", err);
     onStatus("error");
-    ui?.setError(err?.message);
+    ui?.setError(msg);
     ui?.revert?.();
-    config?.onError?.(err);
+    config?.onError?.(new Error(msg));
   }
 }
 
@@ -83,6 +136,9 @@ async function stop() {
   const session = activeSession;
   activeTransport = null;
   activeSession = null;
+
+  callSmall.muteRemoteAudio?.();
+  callDaily.muteRemoteAudio?.();
 
   try {
     const stopKey = config?.privateApiKey;
