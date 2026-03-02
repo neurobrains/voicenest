@@ -198,9 +198,13 @@ jobs:
       if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.npm-version-check.outputs.exists == 'false'
       run: |
         VERSION="${{ steps.package-version.outputs.version }}"
-        git tag "v$VERSION"
-        git push origin "v$VERSION"
-        echo "🏷️  Created and pushed tag v$VERSION"
+        if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+          echo "ℹ️  Tag v$VERSION already exists, skipping tag creation"
+        else
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          echo "🏷️  Created and pushed tag v$VERSION"
+        fi
         
     - name: Display CDN URLs
       if: steps.npm-version-check.outputs.exists == 'false'
