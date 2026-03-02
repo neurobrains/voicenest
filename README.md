@@ -54,7 +54,7 @@ Add VoiceNest to your page via CDN and initialize it with your agent configurati
 Most Pipecat Cloud agents use Daily transport.
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/voicenest@0.2.0/dist/voicenest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/voicenest@0.1.1/dist/voicenest.min.js"></script>
 <script>
   VoiceNest.init({
     startEndpoint: "https://api.pipecat.daily.co/v1/public/YOUR-AGENT/start",
@@ -77,7 +77,7 @@ Most Pipecat Cloud agents use Daily transport.
 Use this when your Pipecat agent is deployed with SmallWebRTC transport.
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/voicenest@0.2.0/dist/voicenest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/voicenest@0.1.1/dist/voicenest.min.js"></script>
 <script>
   VoiceNest.init({
     startEndpoint: "https://api.pipecat.daily.co/v1/public/YOUR-AGENT/start",
@@ -210,10 +210,10 @@ You can load VoiceNest using either CDN provider.
 
 ```html
 <!-- jsDelivr -->
-<script src="https://cdn.jsdelivr.net/npm/voicenest@0.2.0/dist/voicenest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/voicenest@0.1.1/dist/voicenest.min.js"></script>
 
 <!-- unpkg -->
-<script src="https://unpkg.com/voicenest@0.2.0/dist/voicenest.min.js"></script>
+<script src="https://unpkg.com/voicenest@0.1.1/dist/voicenest.min.js"></script>
 ```
 
 ## Typical Use Cases
