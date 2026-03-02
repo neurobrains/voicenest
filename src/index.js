@@ -43,6 +43,28 @@ function normalizeError(err) {
   return msg || "Connection failed. Try again.";
 }
 
+// ── Test mode: simulate a live call for UI development ───────────────────────
+let _testIntervalId = null;
+
+async function _runTestMode(onStatus, onBotSpeaking, onBotStoppedSpeaking, onUserSpeaking, onUserStoppedSpeaking) {
+  onStatus("connecting");
+  await new Promise(r => setTimeout(r, 1400));
+  onStatus("connected");
+
+  // Cycle through bot-speaking → listening → user-speaking → listening every ~2.5 s
+  const phases = [
+    () => { onBotSpeaking(); },
+    () => { onBotStoppedSpeaking(); },
+    () => { onUserSpeaking(); },
+    () => { onUserStoppedSpeaking(); },
+  ];
+  let phase = 0;
+  _testIntervalId = setInterval(() => {
+    phases[phase % phases.length]();
+    phase++;
+  }, 2500);
+}
+
 async function start() {
   if (!config) throw new Error("Call VoiceNest.init() first");
 
@@ -55,6 +77,29 @@ async function start() {
       stop();
     }
   };
+
+  const onBotSpeaking = () => {
+    ui?.startBotSpeaking();
+  };
+
+  const onBotStoppedSpeaking = () => {
+    ui?.startListening();
+  };
+
+  const onUserSpeaking = () => {
+    ui?.startUserSpeaking();
+  };
+
+  const onUserStoppedSpeaking = () => {
+    ui?.startListening();
+  };
+
+  // ── Test mode — bypass real transport ──────────────────────────────────────
+  if (config.testStartEndpoint) {
+    console.info("VoiceNest: testStartEndpoint active — running in UI test mode (no real call).");
+    await _runTestMode(onStatus, onBotSpeaking, onBotStoppedSpeaking, onUserSpeaking, onUserStoppedSpeaking);
+    return;
+  }
 
   if (typeof window !== "undefined" && !window.isSecureContext) {
     const msg = "Microphone requires HTTPS or localhost.";
@@ -110,6 +155,10 @@ async function start() {
         apiKey: config.apiKey,
         iceConfig: session.iceConfig,
         onStatus,
+        onBotSpeaking,
+        onBotStoppedSpeaking,
+        onUserSpeaking,
+        onUserStoppedSpeaking,
       });
     } else {
       activeTransport = "daily";
@@ -117,6 +166,10 @@ async function start() {
         url: session.roomUrl,
         token: session.token,
         onStatus,
+        onBotSpeaking,
+        onBotStoppedSpeaking,
+        onUserSpeaking,
+        onUserStoppedSpeaking,
       });
     }
   } catch (err) {
@@ -132,6 +185,13 @@ async function start() {
 async function stop() {
   if (isStopping) return;
   isStopping = true;
+
+  // Clean up test mode cycle if running
+  if (_testIntervalId) {
+    clearInterval(_testIntervalId);
+    _testIntervalId = null;
+  }
+
   const transport = activeTransport;
   const session = activeSession;
   activeTransport = null;
@@ -170,12 +230,14 @@ function init(opts = {}) {
   const hasStart = opts?.startEndpoint || opts?.startUrl;
   const hasRoom = opts?.roomUrl;
   const hasWebrtc = opts?.webrtcUrl;
+  const hasTest = opts?.testStartEndpoint;
 
-  if (!hasStart && !hasRoom && !hasWebrtc) {
-    throw new Error("VoiceNest.init: startEndpoint, roomUrl, or webrtcUrl required");
+  if (!hasStart && !hasRoom && !hasWebrtc && !hasTest) {
+    throw new Error("VoiceNest.init: startEndpoint, roomUrl, webrtcUrl, or testStartEndpoint required");
   }
 
   config = {
+    testStartEndpoint: opts.testStartEndpoint || false,
     startEndpoint: opts.startEndpoint || opts.startUrl || "",
     apiKey: opts.apiKey || null,
     privateApiKey: opts.privateApiKey || null,

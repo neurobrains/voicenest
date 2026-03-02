@@ -6,8 +6,74 @@ import Daily from "@daily-co/daily-js";
 import { getDefaultAudioConstraints } from "./audio-constraints";
 
 let call = null;
+let userSpeechDetector = null;
 
-export async function join({ url, token, onStatus }) {
+function startUserSpeechDetection(stream, onUserSpeaking, onUserStoppedSpeaking) {
+  if (!stream || userSpeechDetector) return;
+
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyzer = audioContext.createAnalyser();
+    
+    analyzer.fftSize = 256;
+    analyzer.smoothingTimeConstant = 0.8;
+    source.connect(analyzer);
+
+    const bufferLength = analyzer.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    let isSpeaking = false;
+    let silenceStart = 0;
+    const silenceThreshold = 300;
+    const volumeThreshold = 15;
+
+    function detectSpeech() {
+      if (!userSpeechDetector) return;
+      
+      analyzer.getByteFrequencyData(dataArray);
+      
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i];
+      }
+      const averageVolume = sum / bufferLength;
+
+      const now = Date.now();
+      
+      if (averageVolume > volumeThreshold) {
+        if (!isSpeaking) {
+          isSpeaking = true;
+          onUserSpeaking?.();
+        }
+        silenceStart = now;
+      } else {
+        if (isSpeaking && (now - silenceStart) > silenceThreshold) {
+          isSpeaking = false;
+          onUserStoppedSpeaking?.();
+        }
+      }
+
+      requestAnimationFrame(detectSpeech);
+    }
+
+    userSpeechDetector = { audioContext, detectSpeech };
+    detectSpeech();
+  } catch (e) {
+    console.warn("User speech detection failed:", e);
+  }
+}
+
+function stopUserSpeechDetection() {
+  if (userSpeechDetector) {
+    try {
+      userSpeechDetector.audioContext.close();
+    } catch (e) {}
+    userSpeechDetector = null;
+  }
+}
+
+export async function join({ url, token, onStatus, onBotSpeaking, onBotStoppedSpeaking, onUserSpeaking, onUserStoppedSpeaking }) {
   if (!url) throw new Error("roomUrl required");
 
   call = Daily.createCallObject({
@@ -20,6 +86,25 @@ export async function join({ url, token, onStatus }) {
   call.on("error", (e) => {
     console.error("VoiceNest:", e);
     onStatus?.("error");
+  });
+
+  // Bot speaking events
+  call.on("active-speaker-change", (event) => {
+    const { activeSpeaker } = event;
+    if (activeSpeaker && activeSpeaker.local === false) {
+      onBotSpeaking?.();
+    } else if (!activeSpeaker) {
+      onBotStoppedSpeaking?.();
+    }
+  });
+
+  // Track events for user speech detection
+  call.on("track-started", (event) => {
+    const { track, participant } = event;
+    if (track.kind === "audio" && participant?.local === true) {
+      const stream = new MediaStream([track]);
+      startUserSpeechDetection(stream, onUserSpeaking, onUserStoppedSpeaking);
+    }
   });
 
   const audioConstraints = {
@@ -55,6 +140,7 @@ export async function join({ url, token, onStatus }) {
 }
 
 export async function leave() {
+  stopUserSpeechDetection();
   if (!call) return;
   const c = call;
   call = null;

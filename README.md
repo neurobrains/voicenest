@@ -19,6 +19,13 @@ VoiceNest is ideal for customer support, AI assistants, onboarding flows, lead q
 - Customizable position and styling
 - Built-in start and stop session handling
 - Production-ready voice interaction
+- **🎉 NEW: Real-time voice animations**
+  - Wave animations when user speaks
+  - OpenAI-style circular animations when bot speaks
+  - Listening state with gentle wave pulse
+  - Connected state with glow effects
+  - Theme-aware animation colors
+  - Mobile responsive design
 
 ---
 
@@ -47,7 +54,7 @@ Add VoiceNest to your page via CDN and initialize it with your agent configurati
 Most Pipecat Cloud agents use Daily transport.
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/voicenest@0.1.0/dist/voicenest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/voicenest@0.2.0/dist/voicenest.min.js"></script>
 <script>
   VoiceNest.init({
     startEndpoint: "https://api.pipecat.daily.co/v1/public/YOUR-AGENT/start",
@@ -70,7 +77,7 @@ Most Pipecat Cloud agents use Daily transport.
 Use this when your Pipecat agent is deployed with SmallWebRTC transport.
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/voicenest@0.1.0/dist/voicenest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/voicenest@0.2.0/dist/voicenest.min.js"></script>
 <script>
   VoiceNest.init({
     startEndpoint: "https://api.pipecat.daily.co/v1/public/YOUR-AGENT/start",
@@ -128,12 +135,74 @@ VoiceNest.init({
 | `offset` | object | `{x:20,y:20}` | Pixel offset |
 | `color` | string | `"#2563eb"` | Call button color |
 | `theme` | `"dark"` \| `"white"` \| `"device"` | `"dark"` | Widget theme. `device` follows system preference |
-| `style` | `"card"` \| `"circle-round"` \| `"minimal"` | `"card"` | Widget style. `card` = card with status; `circle-round` = circular buttons, no card; `minimal` = buttons only, no card |
+| `style` | `"card"` \| `"circle-round"` \| `"minimal"` \| `"wave"` \| `"circle-mode"` | `"card"` | Widget style. `card` = card with status; `circle-round` = circular buttons, no card; `minimal` = buttons only, no card; `wave` = card with wave animations; `circle-mode` = OpenAI-style circular interface |
 | `shadow` | `false` \| `true` \| string | — | Card shadow. `false` = none; `true` = theme default; string = custom CSS box-shadow |
 | `glow` | `false` \| `true` \| string | — | Call button glow. `true` = glow using `color`; string = glow color (e.g. `"#2563eb"`) |
 | `glowIntensity` | 0–100 (or 0–1) | 45 | Glow opacity. 0 = invisible, 100 = full |
 | `glowSpread` | number (px) | 8 | How far the glow extends from the button |
 | `glowBlur` | number (px) | 28 | Glow softness. Higher = softer, larger halo |
+
+## Voice Animations
+
+VoiceNest now includes stunning real-time voice animations that provide visual feedback during conversations:
+
+### Animation Types
+
+- **Wave Style**: Animated wave bars integrated into the card where status text normally appears
+- **Circle Mode**: OpenAI-inspired interface with large circular button and gradient ring animations
+- **Listening State**: Gentle animations when waiting for user input
+- **Speaking States**: Dynamic animations that respond to both user and bot voice activity
+
+### Animation Features
+
+- Automatic voice activity detection for both user and bot
+- Smooth transitions between different speaking states
+- Theme-aware colors that match your chosen theme
+- Mobile responsive with optimized sizes for smaller screens
+- Professional, modern design inspired by leading voice AI interfaces
+
+The animations work automatically once you initialize VoiceNest - no additional configuration required!
+
+### New Animation Styles
+
+#### Wave Style
+Card layout with animated wave bars next to status text. Waves only animate when someone is speaking:
+
+```javascript
+VoiceNest.init({
+  startEndpoint: "https://api.pipecat.daily.co/v1/public/YOUR-AGENT/start",
+  apiKey: "pk_...",
+  privateApiKey: "sk_...",
+  style: "wave",
+  theme: "dark"
+});
+```
+
+**Wave Features:**
+- Waves animate only during speech (user = blue, bot = green)
+- Status text appears next to the wave display
+- Smooth, responsive animations that react to voice activity
+
+#### Circle Mode (OpenAI Style)
+Compact interface that expands to show an animated orb when active, just like OpenAI's Advanced Voice Mode:
+
+```javascript
+VoiceNest.init({
+  startEndpoint: "https://api.pipecat.daily.co/v1/public/YOUR-AGENT/start",
+  apiKey: "pk_...",
+  privateApiKey: "sk_...",
+  style: "circle-mode",
+  theme: "white"
+});
+```
+
+**Circle Mode Features:**
+- **Initially compact**: Black rounded widget with buttons at bottom, no circle visible
+- **Empty space above**: Reserved space for orb that appears when active
+- **Expands on call**: When call button clicked, widget expands upward and orb appears
+- **Fluid orb animation**: Professional gradient sphere with glow, ripples, and specular highlights
+- **Voice-reactive**: Orb changes color and scale (blue for user, green for bot speaking)
+- **OpenAI-inspired design**: Matches Advanced Voice Mode's exact behavior and visual language
 
 ## CDN Installation
 
@@ -141,10 +210,10 @@ You can load VoiceNest using either CDN provider.
 
 ```html
 <!-- jsDelivr -->
-<script src="https://cdn.jsdelivr.net/npm/voicenest@0.1.0/dist/voicenest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/voicenest@0.2.0/dist/voicenest.min.js"></script>
 
 <!-- unpkg -->
-<script src="https://unpkg.com/voicenest@0.1.0/dist/voicenest.min.js"></script>
+<script src="https://unpkg.com/voicenest@0.2.0/dist/voicenest.min.js"></script>
 ```
 
 ## Typical Use Cases

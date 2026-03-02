@@ -1,6 +1,6 @@
 {
   "name": "voicenest",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Turn Every Visitor Into a Conversation. Embeddable voice widget for Pipecat (Daily + SmallWebRTC).",
   "main": "dist/voicenest.min.js",
   "unpkg": "dist/voicenest.min.js",

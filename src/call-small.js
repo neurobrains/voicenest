@@ -11,6 +11,9 @@ let client = null;
 let audioEl = null;
 let pendingRemoteTrack = null;
 let isReady = false;
+let userSpeechDetector = null;
+let currentOnUserSpeaking = null;
+let currentOnUserStoppedSpeaking = null;
 
 function ensureRemoteAudioElement() {
   if (audioEl && audioEl.parentNode) return audioEl;
@@ -42,7 +45,78 @@ function playRemoteTrack(track) {
   el.play().catch(() => {});
 }
 
-export async function join({ webrtcUrl, apiKey, iceConfig, onStatus }) {
+function startUserSpeechDetection(stream, onUserSpeaking, onUserStoppedSpeaking) {
+  if (!stream || userSpeechDetector) return;
+
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyzer = audioContext.createAnalyser();
+    
+    analyzer.fftSize = 256;
+    analyzer.smoothingTimeConstant = 0.8;
+    source.connect(analyzer);
+
+    const bufferLength = analyzer.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    let isSpeaking = false;
+    let silenceStart = 0;
+    const silenceThreshold = 300; // ms of silence before stopping
+    const volumeThreshold = 15; // adjust sensitivity
+
+    function detectSpeech() {
+      if (!userSpeechDetector) return;
+      
+      analyzer.getByteFrequencyData(dataArray);
+      
+      // Calculate average volume
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i];
+      }
+      const averageVolume = sum / bufferLength;
+
+      const now = Date.now();
+      
+      if (averageVolume > volumeThreshold) {
+        if (!isSpeaking) {
+          isSpeaking = true;
+          onUserSpeaking?.();
+        }
+        silenceStart = now;
+      } else {
+        if (isSpeaking && (now - silenceStart) > silenceThreshold) {
+          isSpeaking = false;
+          onUserStoppedSpeaking?.();
+        }
+      }
+
+      requestAnimationFrame(detectSpeech);
+    }
+
+    userSpeechDetector = { audioContext, detectSpeech };
+    detectSpeech();
+    
+    currentOnUserSpeaking = onUserSpeaking;
+    currentOnUserStoppedSpeaking = onUserStoppedSpeaking;
+  } catch (e) {
+    console.warn("User speech detection failed:", e);
+  }
+}
+
+function stopUserSpeechDetection() {
+  if (userSpeechDetector) {
+    try {
+      userSpeechDetector.audioContext.close();
+    } catch (e) {}
+    userSpeechDetector = null;
+  }
+  currentOnUserSpeaking = null;
+  currentOnUserStoppedSpeaking = null;
+}
+
+export async function join({ webrtcUrl, apiKey, iceConfig, onStatus, onBotSpeaking, onBotStoppedSpeaking, onUserSpeaking, onUserStoppedSpeaking }) {
   if (!webrtcUrl) throw new Error("webrtcUrl required");
 
   installGetUserMediaPatch();
@@ -57,7 +131,14 @@ export async function join({ webrtcUrl, apiKey, iceConfig, onStatus }) {
       onTrackStarted: (track, participant) => {
         console.log("onTrackStarted:", track.kind, "readyState:", track.readyState, "participant:", participant?.local);
         if (track.kind !== "audio") return;
-        if (participant?.local === true) return;
+        
+        if (participant?.local === true) {
+          // Start user speech detection for local track
+          const stream = new MediaStream([track]);
+          startUserSpeechDetection(stream, onUserSpeaking, onUserStoppedSpeaking);
+          return;
+        }
+        
         if (isReady) {
           console.log("playing track immediately, already ready");
           playRemoteTrack(track);
@@ -76,8 +157,14 @@ export async function join({ webrtcUrl, apiKey, iceConfig, onStatus }) {
           pendingRemoteTrack = null;
         }
       },
-      onBotStartedSpeaking: () => console.log("bot started speaking"),
-      onBotStoppedSpeaking: () => console.log("bot stopped speaking"),
+      onBotStartedSpeaking: () => {
+        console.log("bot started speaking");
+        onBotSpeaking?.();
+      },
+      onBotStoppedSpeaking: () => {
+        console.log("bot stopped speaking");
+        onBotStoppedSpeaking?.();
+      },
       onTransportStateChanged: (state) => {
         console.log("transport state:", state);
         if (state === "ready") {
@@ -139,6 +226,7 @@ export function muteRemoteAudio() {
 
 export async function leave() {
   doMuteRemoteAudio();
+  stopUserSpeechDetection();
   if (typeof window !== "undefined" && window.__voicenest_mic_stream) {
     window.__voicenest_mic_stream.getTracks().forEach((t) => t.stop());
     window.__voicenest_mic_stream = null;

@@ -77,6 +77,239 @@
   min-width: 72px;
 }
 
+/* Wave Style - Card with wave animation + status text */
+.voicenest-style-wave .voicenest-card {
+  padding: 12px 16px;
+  border-radius: 14px;
+}
+
+.voicenest-style-wave .voicenest-btn { 
+  border-radius: 12px; 
+}
+
+.voicenest-style-wave .voicenest-wave-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voicenest-style-wave .voicenest-wave-display {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+  justify-content: center;
+}
+
+.voicenest-style-wave .voicenest-wave-bar {
+  width: 3px;
+  height: 4px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+  transform-origin: center;
+}
+
+.voicenest-style-wave.voicenest-theme-white .voicenest-wave-bar,
+.voicenest-style-wave.voicenest-theme-device .voicenest-wave-bar {
+  background: rgba(0,0,0,0.3);
+}
+
+@media (prefers-color-scheme: light) {
+  .voicenest-style-wave.voicenest-theme-device .voicenest-wave-bar {
+    background: rgba(0,0,0,0.3);
+  }
+}
+
+/* Wave animation states - only when speaking */
+.voicenest-style-wave.voicenest-user-speaking .voicenest-wave-bar {
+  background: #3b82f6;
+  animation: wave-user-speaking 0.6s ease-in-out infinite;
+}
+
+.voicenest-style-wave.voicenest-bot-speaking .voicenest-wave-bar {
+  background: #10b981;
+  animation: wave-bot-speaking 0.8s ease-in-out infinite;
+}
+
+.voicenest-style-wave.voicenest-user-speaking .voicenest-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.voicenest-style-wave.voicenest-user-speaking .voicenest-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.voicenest-style-wave.voicenest-user-speaking .voicenest-wave-bar:nth-child(4) { animation-delay: 0.15s; }
+.voicenest-style-wave.voicenest-user-speaking .voicenest-wave-bar:nth-child(5) { animation-delay: 0.25s; }
+
+.voicenest-style-wave.voicenest-bot-speaking .voicenest-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.voicenest-style-wave.voicenest-bot-speaking .voicenest-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.voicenest-style-wave.voicenest-bot-speaking .voicenest-wave-bar:nth-child(4) { animation-delay: 0.15s; }
+.voicenest-style-wave.voicenest-bot-speaking .voicenest-wave-bar:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes wave-user-speaking {
+  0%, 100% { transform: scaleY(0.8); }
+  50% { transform: scaleY(3); }
+}
+
+@keyframes wave-bot-speaking {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(2.5); }
+}
+
+/* ── Circle Mode Style — Crystal Aura ──────────────────────────────────── */
+.voicenest-style-circle-mode .voicenest-card {
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 16px 14px;
+  border-radius: 22px;
+  min-width: 180px;
+  background: #111318 !important;
+  border: 1px solid rgba(255,255,255,.07) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,.45) !important;
+  transition: min-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  justify-content: flex-end;
+  gap: 0;
+}
+
+/* Compact when not yet active */
+.voicenest-style-circle-mode .voicenest-card:not(.voicenest-active) {
+  min-height: 76px;
+}
+
+/* Expanded when active (canvas orb visible) */
+.voicenest-style-circle-mode .voicenest-card.voicenest-active {
+  min-height: 230px;
+  padding: 12px 16px 14px;
+  justify-content: space-between;
+}
+
+/* Perfect Orb container */
+.voicenest-perfect-orb {
+  width: 180px;
+  height: 220px; /* Extra height for wave below orb */
+  flex-shrink: 0;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.voicenest-style-circle-mode .voicenest-card.voicenest-active .voicenest-perfect-orb {
+  display: flex;
+}
+
+/* Orb wrapper containing orb + wave */
+.voicenest-orb-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Orb canvas */
+.voicenest-orb-canvas {
+  display: block;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.voicenest-orb-canvas:hover {
+  filter: brightness(1.1);
+}
+
+/* Wave canvas below orb */
+.voicenest-wave-canvas {
+  display: block;
+}
+
+/* Bottom Controls */
+.voicenest-style-circle-mode .voicenest-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.voicenest-style-circle-mode .voicenest-call {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.voicenest-style-circle-mode .voicenest-mic {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.voicenest-style-circle-mode .voicenest-status {
+  font-size: 12px;
+  min-width: 56px;
+  text-align: center;
+  color: rgba(180, 220, 255, 0.75);
+  letter-spacing: 0.02em;
+}
+
+.voicenest-style-circle-mode .voicenest-btn {
+  color: #fff;
+}
+
+.voicenest-style-circle-mode .voicenest-mic {
+  background: rgba(255,255,255,.1);
+}
+
+.voicenest-style-circle-mode .voicenest-mic:hover {
+  background: rgba(255,255,255,.18);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .voicenest-style-circle-mode .voicenest-card:not(.voicenest-active) {
+    min-width: 150px;
+    min-height: 68px;
+  }
+
+  .voicenest-style-circle-mode .voicenest-card.voicenest-active {
+    min-height: 190px;
+    padding: 10px 12px 12px;
+  }
+
+  .voicenest-perfect-orb {
+    width: 150px;
+    height: 180px;
+  }
+
+  .voicenest-style-circle-mode .voicenest-call {
+    width: 40px;
+    height: 40px;
+  }
+
+  .voicenest-style-circle-mode .voicenest-mic {
+    width: 32px;
+    height: 32px;
+  }
+
+  .voicenest-style-circle-mode .voicenest-status {
+    font-size: 11px;
+    min-width: 44px;
+  }
+
+  .voicenest-style-circle-mode .voicenest-controls {
+    gap: 8px;
+  }
+
+  .voicenest-style-wave .voicenest-wave-bar {
+    width: 2px;
+    height: 3px;
+  }
+
+  .voicenest-style-wave .voicenest-wave-container {
+    gap: 6px;
+  }
+
+  .voicenest-style-wave .voicenest-status {
+    font-size: 11px;
+  }
+}
+
 /* style: card (default) */
 .voicenest-style-card .voicenest-card {
   padding: 12px 16px;
