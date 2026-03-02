@@ -1,0 +1,58 @@
+name: Test Build
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches-ignore: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+          
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests (if available)
+      run: npm test --if-present
+      
+    - name: Build project
+      run: npm run build
+      
+    - name: Verify build output
+      run: |
+        if [ ! -d "dist" ]; then
+          echo "❌ dist directory not found!"
+          exit 1
+        fi
+        if [ ! -f "dist/voicenest.min.js" ]; then
+          echo "❌ Main dist file not found!"
+          exit 1
+        fi
+        
+        # Check file size (should be reasonable for a widget)
+        SIZE=$(wc -c < dist/voicenest.min.js)
+        if [ $SIZE -gt 2097152 ]; then  # 2MB limit
+          echo "⚠️  Warning: Build file is quite large (${SIZE} bytes)"
+        fi
+        
+        echo "✅ Build verification passed"
+        echo "📊 Build stats:"
+        ls -lh dist/
