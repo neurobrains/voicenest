@@ -356,11 +356,38 @@ export function render(config, { onStart, onStop, onToggleMic }) {
     `;
   }
 
+  // Generate positioning styles
+  let positionStyles = 'position:fixed;z-index:2147483647;';
+  let transformParts = [];
+  
+  // Handle vertical positioning
+  if (pos.includes("bottom")) {
+    positionStyles += `bottom:${c("y")}px;`;
+  } else if (pos.includes("top")) {
+    positionStyles += `top:${c("y")}px;`;
+  } else if (pos.includes("center")) {
+    positionStyles += `top:50%;`;
+    transformParts.push('translateY(-50%)');
+  }
+  
+  // Handle horizontal positioning
+  if (pos.includes("right")) {
+    positionStyles += `right:${c("x")}px;`;
+  } else if (pos.includes("left")) {
+    positionStyles += `left:${c("x")}px;`;
+  } else if (pos.includes("center")) {
+    positionStyles += `left:50%;`;
+    transformParts.push('translateX(-50%)');
+  }
+  
+  // Apply transform if needed for centering
+  if (transformParts.length > 0) {
+    positionStyles += `transform:${transformParts.join(' ')};`;
+  }
+
   root.innerHTML = `
     <div class="voicenest-card" style="
-      position:fixed;${pos.includes("bottom") ? "bottom:" + c("y") + "px" : "top:" + c("y") + "px"};
-      ${pos.includes("right") ? "right:" + c("x") + "px" : "left:" + c("x") + "px"};
-      z-index:2147483647;
+      ${positionStyles}
       display:flex;align-items:center;gap:10px;
       padding:12px 16px;
       border-radius:14px;
