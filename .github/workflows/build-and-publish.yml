@@ -2,8 +2,7 @@ name: Build and Publish to NPM
 
 on:
   push:
-    branches: [ main, master ]
-    tags: [ 'v*' ]
+    branches: [ main ]
   release:
     types: [ published ]
 
@@ -14,6 +13,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for changelog generation
+        token: ${{ secrets.GITHUB_TOKEN }}
       
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -38,7 +40,7 @@ jobs:
     - name: Run tests (if available)
       run: npm test --if-present
       
-    - name: Check dist files exist
+    - name: Verify build artifacts
       run: |
         if [ ! -d "dist" ]; then
           echo "❌ dist directory not found!"
@@ -49,40 +51,166 @@ jobs:
           exit 1
         fi
         echo "✅ Build artifacts verified"
+        echo "📁 Dist contents:"
         ls -la dist/
         
-    - name: Publish to NPM (on release)
-      if: startsWith(github.ref, 'refs/tags/v')
-      run: npm publish --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        
-    - name: Publish to NPM (latest from main/master)
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      run: |
-        # Get current version from package.json
-        CURRENT_VERSION=$(node -p "require('./package.json').version")
-        
-        # Check if this version already exists on npm
-        if npm view voicenest@$CURRENT_VERSION version 2>/dev/null; then
-          echo "Version $CURRENT_VERSION already exists on npm, skipping publish"
-          exit 0
-        fi
-        
-        echo "Publishing version $CURRENT_VERSION to npm..."
-        npm publish --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        
-    - name: Create CDN usage comment
-      if: startsWith(github.ref, 'refs/tags/v')
+    - name: Get package version
+      id: package-version
       run: |
         VERSION=$(node -p "require('./package.json').version")
-        echo "📦 Package published successfully!"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "📦 Current package version: $VERSION"
+        
+    - name: Check if version exists on NPM
+      id: npm-version-check
+      run: |
+        VERSION="${{ steps.package-version.outputs.version }}"
+        if npm view voicenest@$VERSION version 2>/dev/null; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "⚠️  Version $VERSION already exists on NPM"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "✅ Version $VERSION is new, ready to publish"
+        fi
+        
+    - name: Generate changelog
+      id: changelog
+      if: steps.npm-version-check.outputs.exists == 'false'
+      run: |
+        VERSION="${{ steps.package-version.outputs.version }}"
+        
+        # Create or update CHANGELOG.md
+        if [ ! -f CHANGELOG.md ]; then
+          echo "# Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "All notable changes to this project will be documented in this file." >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+        fi
+        
+        # Get commits since last tag (or all commits if no tags)
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        
+        if [ -n "$LAST_TAG" ]; then
+          COMMITS=$(git log $LAST_TAG..HEAD --oneline --no-merges)
+          echo "📝 Changes since $LAST_TAG:"
+        else
+          COMMITS=$(git log --oneline --no-merges)
+          echo "📝 All changes:"
+        fi
+        
+        if [ -n "$COMMITS" ]; then
+          # Prepare changelog entry
+          CHANGELOG_ENTRY="## [$VERSION] - $(date +%Y-%m-%d)\n\n"
+          
+          # Categorize commits
+          FEATURES=$(echo "$COMMITS" | grep -i "^[a-f0-9]* \(feat\|add\)" || true)
+          FIXES=$(echo "$COMMITS" | grep -i "^[a-f0-9]* \(fix\|bug\)" || true)
+          OTHERS=$(echo "$COMMITS" | grep -iv "^[a-f0-9]* \(feat\|add\|fix\|bug\)" || true)
+          
+          if [ -n "$FEATURES" ]; then
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}### Added\n"
+            echo "$FEATURES" | while read line; do
+              MSG=$(echo "$line" | cut -d' ' -f2-)
+              CHANGELOG_ENTRY="${CHANGELOG_ENTRY}- $MSG\n"
+            done
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}\n"
+          fi
+          
+          if [ -n "$FIXES" ]; then
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}### Fixed\n"
+            echo "$FIXES" | while read line; do
+              MSG=$(echo "$line" | cut -d' ' -f2-)
+              CHANGELOG_ENTRY="${CHANGELOG_ENTRY}- $MSG\n"
+            done
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}\n"
+          fi
+          
+          if [ -n "$OTHERS" ]; then
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}### Changed\n"
+            echo "$OTHERS" | while read line; do
+              MSG=$(echo "$line" | cut -d' ' -f2-)
+              CHANGELOG_ENTRY="${CHANGELOG_ENTRY}- $MSG\n"
+            done
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}\n"
+          fi
+          
+          # Insert new entry at the top of changelog (after header)
+          if grep -q "^# Changelog" CHANGELOG.md; then
+            # Find the line number after the header
+            HEADER_LINE=$(grep -n "^# Changelog" CHANGELOG.md | head -1 | cut -d: -f1)
+            HEAD_LINES=$((HEADER_LINE + 2))
+            
+            # Create temporary files
+            head -n $HEAD_LINES CHANGELOG.md > temp_head.md
+            tail -n +$((HEAD_LINES + 1)) CHANGELOG.md > temp_tail.md
+            
+            # Combine: header + new entry + rest
+            cat temp_head.md > new_changelog.md
+            echo -e "$CHANGELOG_ENTRY" >> new_changelog.md
+            cat temp_tail.md >> new_changelog.md
+            
+            mv new_changelog.md CHANGELOG.md
+            rm -f temp_head.md temp_tail.md
+          fi
+          
+          echo "✅ Changelog updated"
+          echo "changelog_updated=true" >> $GITHUB_OUTPUT
+        else
+          echo "ℹ️  No new commits found"
+          echo "changelog_updated=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Commit changelog
+      if: steps.changelog.outputs.changelog_updated == 'true' && github.event_name == 'push'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add CHANGELOG.md
+        git commit -m "chore: update changelog for v${{ steps.package-version.outputs.version }}" || exit 0
+        git push
+        
+    - name: Publish to NPM (from main branch)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.npm-version-check.outputs.exists == 'false'
+      run: |
+        VERSION="${{ steps.package-version.outputs.version }}"
+        echo "🚀 Publishing version $VERSION to NPM from main branch..."
+        npm publish --access public
+        echo "✅ Successfully published voicenest@$VERSION"
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        
+    - name: Publish to NPM (from release)
+      if: github.event_name == 'release'
+      run: |
+        VERSION="${{ steps.package-version.outputs.version }}"
+        echo "🚀 Publishing version $VERSION to NPM from GitHub release..."
+        npm publish --access public
+        echo "✅ Successfully published voicenest@$VERSION"
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        
+    - name: Create Git tag (if publishing from main)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.npm-version-check.outputs.exists == 'false'
+      run: |
+        VERSION="${{ steps.package-version.outputs.version }}"
+        git tag "v$VERSION"
+        git push origin "v$VERSION"
+        echo "🏷️  Created and pushed tag v$VERSION"
+        
+    - name: Display CDN URLs
+      if: steps.npm-version-check.outputs.exists == 'false'
+      run: |
+        VERSION="${{ steps.package-version.outputs.version }}"
+        echo "🎉 Package published successfully!"
         echo ""
-        echo "CDN Usage:"
-        echo "🔗 jsDelivr: https://cdn.jsdelivr.net/npm/voicenest@$VERSION/dist/voicenest.min.js"
-        echo "🔗 unpkg: https://unpkg.com/voicenest@$VERSION/dist/voicenest.min.js"
+        echo "📦 NPM Package: https://www.npmjs.com/package/voicenest"
         echo ""
-        echo "HTML Usage:"
-        echo "<script src=\"https://cdn.jsdelivr.net/npm/voicenest@$VERSION/dist/voicenest.min.js\"></script>"
+        echo "🔗 CDN URLs:"
+        echo "   jsDelivr: https://cdn.jsdelivr.net/npm/voicenest@$VERSION/dist/voicenest.min.js"
+        echo "   unpkg: https://unpkg.com/voicenest@$VERSION/dist/voicenest.min.js"
+        echo ""
+        echo "📋 HTML Usage:"
+        echo '   <script src="https://cdn.jsdelivr.net/npm/voicenest@'$VERSION'/dist/voicenest.min.js"></script>'
+        echo ""
+        echo "🎯 Latest version:"
+        echo '   <script src="https://cdn.jsdelivr.net/npm/voicenest/dist/voicenest.min.js"></script>'
