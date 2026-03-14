@@ -5,7 +5,12 @@ module.exports = {
   entry: "./src/index.js",
   output: {
     filename: "voicenest.min.js",
+    // Named chunks for the lazy-loaded transports
+    chunkFilename: "voicenest.[name].js",
     path: path.resolve(__dirname, "dist"),
+    // 'auto' detects the base URL from the <script> src at runtime —
+    // makes split chunks + audio assets resolve correctly from any CDN URL.
+    publicPath: "auto",
     library: {
       name: "VoiceNest",
       type: "umd",
@@ -19,6 +24,13 @@ module.exports = {
         test: /\.css$/,
         use: ["style-loader", "css-loader"],
       },
+      {
+        test: /\.(mp3|wav|ogg)$/,
+        type: "asset/resource",
+        generator: {
+          filename: "audio/[name][ext]",
+        },
+      },
     ],
   },
   optimization: {
@@ -31,6 +43,18 @@ module.exports = {
         },
       }),
     ],
+    // Only split async (dynamically imported) chunks — avoids conflicts with the
+    // UMD entry filename. The transport modules are already dynamic imports so
+    // webpack will emit them as voicenest.transport-daily.js / transport-small.js.
+    splitChunks: {
+      chunks: "async",
+    },
+  },
+  performance: {
+    // Warn only above 1 MiB so the separate audio/transport files don't spam
+    maxAssetSize: 1048576,
+    maxEntrypointSize: 1048576,
+    hints: "warning",
   },
   mode: "production",
   devtool: false,
