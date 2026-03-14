@@ -9,10 +9,23 @@ import { installGetUserMediaPatch } from "./audio-constraints";
 installGetUserMediaPatch();
 
 import { render } from "./ui";
-import * as callDaily from "./call-daily";
-import * as callSmall from "./call-small";
 import { startSession, stopSession } from "./session";
 import { requestMicPermission } from "./audio-constraints";
+
+// Transport modules are lazy-loaded on first call to keep the main bundle small.
+// Each is cached after the first dynamic import so subsequent calls are instant.
+let _callDaily = null;
+let _callSmall = null;
+
+async function getCallDaily() {
+  if (!_callDaily) _callDaily = await import(/* webpackChunkName: "transport-daily" */ "./call-daily");
+  return _callDaily;
+}
+
+async function getCallSmall() {
+  if (!_callSmall) _callSmall = await import(/* webpackChunkName: "transport-small" */ "./call-small");
+  return _callSmall;
+}
 
 let config = null;
 let ui = null;
@@ -150,6 +163,7 @@ async function start() {
 
     if (transport === "small-webrtc") {
       activeTransport = "small";
+      const callSmall = await getCallSmall();
       await callSmall.join({
         webrtcUrl: session.webrtcUrl,
         apiKey: config.apiKey,
@@ -162,6 +176,7 @@ async function start() {
       });
     } else {
       activeTransport = "daily";
+      const callDaily = await getCallDaily();
       await callDaily.join({
         url: session.roomUrl,
         token: session.token,
@@ -197,8 +212,8 @@ async function stop() {
   activeTransport = null;
   activeSession = null;
 
-  callSmall.muteRemoteAudio?.();
-  callDaily.muteRemoteAudio?.();
+  _callSmall?.muteRemoteAudio?.();
+  _callDaily?.muteRemoteAudio?.();
 
   try {
     const stopKey = config?.privateApiKey;
@@ -208,9 +223,9 @@ async function stop() {
       console.warn("VoiceNest: Stop requires privateApiKey. Session may remain active.");
     }
     if (transport === "small") {
-      await callSmall.leave();
+      await _callSmall?.leave();
     } else if (transport === "daily") {
-      await callDaily.leave();
+      await _callDaily?.leave();
     }
   } finally {
     isStopping = false;
@@ -220,9 +235,9 @@ async function stop() {
 
 function setMic(enabled) {
   if (activeTransport === "small") {
-    callSmall.setMic(enabled);
+    _callSmall?.setMic(enabled);
   } else {
-    callDaily.setMic(enabled);
+    _callDaily?.setMic(enabled);
   }
 }
 
